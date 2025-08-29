@@ -45,3 +45,66 @@ Quick wins yang bisa langsung saya kerjakan
 - Fokus node + sorot jalur ke root.
 - Pencarian nama dengan highlight hasil.
 - Ekspor PNG/SVG dari kanvas saat ini.
+
+
+
+
+
+
+=============
+
+Layout & Orientasi
+
+- Vertikal: generasi turun ke bawah; paling natural di seluler.
+- Horizontal: cocok untuk layar lebar dan cetak dinding.
+- Radial: pusat ke luar untuk menyorot seorang tokoh.
+- Mini‑map: pratinjau keseluruhan + kotak tampilan aktif.
+
+Desain Node
+
+- Avatar + Nama: bulat, inisial jika tanpa foto; nama 1–2 baris.
+- Badge Status: married/divorced/adopted, gender opsional.
+- Kode Warna Keluarga: klan/cabang mendapat warna lembut konsisten.
+- Ukuran Adaptif: perkecil detail saat zoom jauh (hanya avatar).
+
+Hubungan & Visual
+
+- Pasangan: garis horizontal halus; putus‑putus untuk bercerai.
+- Parent→Child: garis ortogonal; adopsi dengan pola putus‑putus.
+- Multi‑spouse: urut kronologis dengan label tahun/pernikahan.
+- Legenda: contoh ikon/garis untuk memahamkan pola visual.
+
+Navigasi & Fokus
+
+- Zoom/Pan: dua jari di mobile, gulir + drag di desktop.
+- Fokus Node: sorot jalur leluhur/keturunan; blur cabang lain.
+- Expand/Collapse: per cabang; “Expand level N” cepat.
+- Breadcrumb: “Kakek > Ayah > Saya” untuk orientasi.
+
+Pencarian & Filter
+
+- Pencarian Nama: hasil menyorot node + tombol “lompat”.
+- Filter Cepat: generasi (≤N), status (hidup/meninggal), lokasi.
+- Sorot Kriteria: garis atau halo saat filter aktif.
+- Daftar Hasil: panel samping/lembar bawah dengan preview kecil.
+
+Detail Kontekstual
+
+- Panel Ringkas: muncul saat pilih node (pasangan, anak, catatan).
+- Tindakan Cepat: “Pusatkan”, “Tampilkan keturunan”, “Sembunyikan cabang”.
+- Timeline Mini: kelahiran/nikah/meninggal sebagai chip waktu.
+- Foto & Dokumen: galeri ringan di panel detail.
+
+Pengeditan & Kolaborasi
+
+- Mode Edit Terpisah: tombol masuk/keluar, cegah salah sentuh.
+- Form Bertahap: tambah orang > hubungan > detail opsional.
+- Validasi Lembut: cegah siklus/usia tidak logis dengan tip jelas.
+- Riwayat Perubahan: siapa mengubah, kapan; undo singkat.
+
+Aksesibilitas & Responsif
+
+- Target Sentuh ≥44px, kontras warna AA, fokus keyboard jelas.
+- Bahasa & Nama Lokal: dukung variasi penulisan nama.
+- Tema Gelap/Terang: konsisten dengan sistem.
+- Cetak/Ekspor: tata letak rapi ke PNG/PDF/SVG dengan judul/legend.

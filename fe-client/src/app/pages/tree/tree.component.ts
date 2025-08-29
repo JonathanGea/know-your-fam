@@ -134,23 +134,9 @@ export class TreeComponent {
     return this.collapsed.has(node.id);
   }
 
-  private manualShowAll = new Set<string>();
   toggle(node: Person): void {
-    if (this.focusMode) {
-      const wasCollapsed = this.collapsed.has(node.id);
-      if (!wasCollapsed && !this.manualShowAll.has(node.id)) {
-        this.manualShowAll.add(node.id);
-        this.scheduleRecalc();
-        return;
-      }
-    }
-    if (this.collapsed.has(node.id)) {
-      this.collapsed.delete(node.id);
-      if (this.focusMode) this.manualShowAll.add(node.id);
-    } else {
-      this.collapsed.add(node.id);
-      if (this.focusMode) this.manualShowAll.delete(node.id);
-    }
+    if (this.collapsed.has(node.id)) this.collapsed.delete(node.id);
+    else this.collapsed.add(node.id);
     this.scheduleRecalc();
     try { localStorage.setItem('tree:collapsed', JSON.stringify(Array.from(this.collapsed))); } catch {}
   }
@@ -166,13 +152,6 @@ export class TreeComponent {
   canvasH = 0;
   spouseColor = '#fb7185';
   spouseDivorcedColor = '#9ca3af';
-  highlightColor = '#6366f1';
-  // internal state only for drawing
-  private highlighted = new Set<string>();
-  // user setting: how many generations above selected become the view root
-  focusAncestors = 3;
-  // user setting: how many descendant levels to expand under selected
-  focusDescendants = 1;
 
   constructor() {
     this.viewRoot = this.root;
@@ -186,24 +165,13 @@ export class TreeComponent {
         this.collapsed = new Set(arr);
       }
     } catch {}
-    // restore focus ancestors pref
-    try {
-      const rawAnc = localStorage.getItem('tree:focusAnc');
-      if (rawAnc != null) this.focusAncestors = Math.max(0, Math.min(10, parseInt(rawAnc, 10) || 0));
-    } catch {}
-    try {
-      const rawDesc = localStorage.getItem('tree:focusDesc');
-      if (rawDesc != null) this.focusDescendants = Math.max(0, Math.min(10, parseInt(rawDesc, 10) || 0));
-    } catch {}
     // restore zoom or keep smaller default
     try {
       const rawZoom = localStorage.getItem('tree:zoom');
       if (rawZoom != null) this.zoom = Math.max(0.5, Math.min(2, parseFloat(rawZoom) || this.zoom));
     } catch {}
   }
-  focusMode = false;
   private pathToSelected: Person[] = [];
-  private nextChildId: Map<string, string> = new Map();
 
   @HostListener('window:resize') onResize() {
     this.scheduleRecalc();
@@ -286,8 +254,7 @@ export class TreeComponent {
           const y = (a.top + a.height / 2 + b.top + b.height / 2) / 2;
           const d = `M ${a.right} ${y} L ${b.left} ${y}`;
           const divorced = p.spouseStatus === 'divorced';
-          const anyHi = this.highlighted.size > 0 && (this.highlighted.has(p.id) || this.highlighted.has(p.spouse.id));
-          paths.push({ d, color: anyHi ? this.highlightColor : (divorced ? this.spouseDivorcedColor : this.spouseColor), w: anyHi ? 3 : 2, dash: divorced ? '4 4' : undefined });
+          paths.push({ d, color: divorced ? this.spouseDivorcedColor : this.spouseColor, w: 2, dash: divorced ? '4 4' : undefined });
         }
       }
 
@@ -302,137 +269,17 @@ export class TreeComponent {
     this.connectors = paths;
   }
 
-  // selection/tooltip panel + focus logic
+  // selection panel (no focus logic)
   selected: Person | null = null;
   select(p: Person) {
     this.selected = p;
-    this.applyFocus(p);
+    this.scheduleRecalc();
   }
   findSpouse(p: Person): Person | null { return p.spouse ?? null; }
   findSpouseStatus(p: Person): string | null { return p.spouseStatus ?? null; }
   filteredChildren(node: Person): Person[] {
-    if (!node.children) return [];
-    if (!this.focusMode) return node.children;
-    if (this.selected && node.id === this.selected.id) return node.children;
-    if (this.manualShowAll.has(node.id)) return node.children;
-    // if node is a descendant of selected, allow showing its children up to configured depth
-    const d = this.depthFromSelected(node);
-    if (d >= 0) {
-      if (d < this.focusDescendants) return node.children;
-      return [];
-    }
-    const nextId = this.nextChildId.get(node.id);
-    if (!nextId) return [];
-    const child = node.children.find(c => c.id === nextId);
-    return child ? [child] : [];
+    return node.children ?? [];
   }
-  private depthFromSelected(node: Person): number {
-    if (!this.selected) return -1;
-    const search = (p: Person, depth: number): number => {
-      if (p.id === node.id) return depth;
-      if (!p.children) return -1;
-      for (const c of p.children) {
-        const r = search(c, depth + 1);
-        if (r !== -1) return r;
-      }
-      return -1;
-    };
-    return search(this.selected, 0);
-  }
-  private computeHighlight() {
-    this.highlighted.clear();
-    const s = this.selected;
-    if (!s) return;
-    // ancestors path
-    const path: Person[] = [];
-    if (this.findPath(this.root, s.id, path)) {
-      for (const n of path) {
-        this.highlighted.add(n.id);
-        if (n.spouse) this.highlighted.add(n.spouse.id);
-      }
-    }
-    // descendants from selected
-    const addDesc = (p: Person) => {
-      if (!p.children) return;
-      for (const c of p.children) {
-        this.highlighted.add(c.id);
-        if (c.spouse) this.highlighted.add(c.spouse.id);
-        addDesc(c);
-      }
-    };
-    addDesc(s);
-  }
-  private findPath(cur: Person, targetId: string, acc: Person[]): boolean {
-    acc.push(cur);
-    if (cur.id === targetId || cur.spouse?.id === targetId) return true;
-    if (cur.children) {
-      for (const ch of cur.children) {
-        if (this.findPath(ch, targetId, acc)) return true;
-      }
-    }
-    acc.pop();
-    return false;
-  }
-  private collectWithChildren(from: Person, sink: Set<string>) {
-    if (from.children && from.children.length) sink.add(from.id);
-    if (from.children) from.children.forEach(ch => this.collectWithChildren(ch, sink));
-  }
-  private applyFocus(p: Person) {
-    // compute path from root to selected
-    const path: Person[] = [];
-    const ok = this.findPath(this.root, p.id, path);
-    if (!ok) {
-      this.focusMode = false;
-      this.viewRoot = this.root;
-      this.scheduleRecalc();
-      return;
-    }
-    this.focusMode = true;
-    this.pathToSelected = path.slice();
-    // view root = up to 3 generations above selected
-    const selIdx = path.length - 1;
-    const anc = Math.max(0, Math.min(10, Math.floor(this.focusAncestors)));
-    const topIdx = Math.max(0, selIdx - anc);
-    this.viewRoot = path[topIdx]!;
-    // map next child along path from viewRoot to selected
-    this.nextChildId.clear();
-    this.manualShowAll.clear();
-    for (let i = topIdx; i < selIdx; i++) {
-      this.nextChildId.set(path[i]!.id, path[i + 1]!.id);
-    }
-    // collapse everything under viewRoot
-    const newCollapsed = new Set<string>();
-    this.collectWithChildren(this.viewRoot, newCollapsed);
-    // uncollapse nodes along path from viewRoot to selected
-    for (let i = topIdx; i <= selIdx; i++) {
-      newCollapsed.delete(path[i]!.id);
-    }
-    // show only one level below selected: collapse each child of selected to hide grandchildren
-    const sel = path[selIdx]!;
-    if (sel.children) sel.children.forEach(ch => newCollapsed.add(ch.id));
-    this.collapsed = newCollapsed;
-    this.computeHighlight();
-    this.scheduleRecalc();
-  }
-  onFocusAncestorsChange(val: any) {
-    const n = typeof val === 'number' ? val : parseInt(String(val), 10);
-    if (Number.isFinite(n as any)) {
-      this.focusAncestors = Math.max(0, Math.min(10, Math.floor(n as any)));
-      try { localStorage.setItem('tree:focusAnc', String(this.focusAncestors)); } catch {}
-      if (this.selected) this.applyFocus(this.selected);
-    }
-  }
-  onFocusDescendantsChange(val: any) {
-    const n = typeof val === 'number' ? val : parseInt(String(val), 10);
-    if (Number.isFinite(n as any)) {
-      this.focusDescendants = Math.max(0, Math.min(10, Math.floor(n as any)));
-      try { localStorage.setItem('tree:focusDesc', String(this.focusDescendants)); } catch {}
-      if (this.selected) this.applyFocus(this.selected);
-      else this.scheduleRecalc();
-    }
-  }
-  isHighlighted(p: Person): boolean { return this.highlighted.has(p.id); }
-  hasHighlight(): boolean { return this.highlighted.size > 0; }
   // focusSelection removed (button deleted)
 
   // pan/zoom (drag to scroll; Ctrl+wheel to zoom)

@@ -101,34 +101,30 @@
       </div>
 
       <!-- couple row (node + optional spouse) -->
-      <div class="relative z-[1] inline-flex items-center gap-4">
-        <!-- person card -->
+      <div class="relative z-[1] inline-flex items-end gap-6">
+        <!-- person node: avatar + name (vertical) -->
         <div
-          class="inline-flex items-center gap-3 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 shadow-sm cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-neutral-800/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 w-52"
+          class="inline-flex flex-col items-center rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 shadow-sm cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-neutral-800/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 w-24"
           (click)="select(node)" [treeNodeRef]="node.id">
-          <div
-            class="size-8 rounded-full bg-indigo-600 text-white grid place-items-center text-xs font-semibold shrink-0">
+          <div class="size-12 rounded-full bg-indigo-600 text-white grid place-items-center text-sm font-semibold">
             {{ initials(node.name) }}
           </div>
-          <div class="min-w-0">
-            <div class="text-sm font-medium leading-tight break-words line-clamp-2">{{ node.name }}</div>
-            <div class="text-[11px] text-gray-500 mt-0.5" [class.invisible]="!node.born">b. {{ node.born || '' }}</div>
+          <div class="mt-1 w-full text-center">
+            <div class="text-xs font-medium leading-tight break-words line-clamp-2">{{ node.name }}</div>
           </div>
         </div>
 
-        <!-- spouse card (optional) -->
+        <!-- spouse node (optional) -->
         <ng-container *ngIf="node.spouse as s">
-          <div class="h-px w-4 bg-rose-300 dark:bg-rose-400/50" aria-hidden="true"></div>
+          <div class="h-px w-6 self-center bg-rose-300 dark:bg-rose-400/50" aria-hidden="true"></div>
           <div
-            class="inline-flex items-center gap-3 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 shadow-sm cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-neutral-800/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 w-52"
+            class="inline-flex flex-col items-center rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 shadow-sm cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-neutral-800/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 w-24"
             (click)="select(s)" [treeNodeRef]="s.id">
-            <div
-              class="size-8 rounded-full bg-fuchsia-600 text-white grid place-items-center text-xs font-semibold shrink-0">
+            <div class="size-12 rounded-full bg-fuchsia-600 text-white grid place-items-center text-sm font-semibold">
               {{ initials(s.name) }}
             </div>
-            <div class="min-w-0">
-              <div class="text-sm font-medium leading-tight break-words line-clamp-2">{{ s.name }}</div>
-              <div class="text-[11px] text-gray-500 mt-0.5" [class.invisible]="!s.born">b. {{ s.born || '' }}</div>
+            <div class="mt-1 w-full text-center">
+              <div class="text-xs font-medium leading-tight break-words line-clamp-2">{{ s.name }}</div>
             </div>
           </div>
         </ng-container>

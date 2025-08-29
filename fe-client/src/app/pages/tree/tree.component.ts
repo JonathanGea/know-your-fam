@@ -195,6 +195,11 @@ export class TreeComponent {
       const rawDesc = localStorage.getItem('tree:focusDesc');
       if (rawDesc != null) this.focusDescendants = Math.max(0, Math.min(10, parseInt(rawDesc, 10) || 0));
     } catch {}
+    // restore zoom or keep smaller default
+    try {
+      const rawZoom = localStorage.getItem('tree:zoom');
+      if (rawZoom != null) this.zoom = Math.max(0.5, Math.min(2, parseFloat(rawZoom) || this.zoom));
+    } catch {}
   }
   focusMode = false;
   private pathToSelected: Person[] = [];
@@ -431,7 +436,7 @@ export class TreeComponent {
   // focusSelection removed (button deleted)
 
   // pan/zoom (drag to scroll; Ctrl+wheel to zoom)
-  zoom = 1;
+  zoom = 0.85; // perkecil saat pertama kali dibuka
   @HostListener('wheel', ['$event'])
   onWheel(ev: WheelEvent) {
     if (!this.scrollBox) return;
@@ -450,6 +455,7 @@ export class TreeComponent {
       sb.scrollLeft = focusX * this.zoom - pointerX;
       sb.scrollTop = focusY * this.zoom - pointerY;
       this.scheduleRecalc();
+      try { localStorage.setItem('tree:zoom', String(this.zoom)); } catch {}
     }
   }
   // Touch pinch-zoom and pan
@@ -504,6 +510,7 @@ export class TreeComponent {
         sb.scrollLeft = focusX * this.zoom - midX;
         sb.scrollTop = focusY * this.zoom - midY;
         this.scheduleRecalc();
+        try { localStorage.setItem('tree:zoom', String(this.zoom)); } catch {}
       }
       this.pinchLastDistance = currDist;
     } else if (this.isTouchPanning && this.activePointers.size === 1) {

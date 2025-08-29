@@ -102,7 +102,37 @@ export class TreeNodeRefDirective {
           </div>
         </div>
       </ng-template>
-      
+
+      <!-- Legend kecil -->
+      <div class="mt-3 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
+        <div class="text-xs font-medium mb-2">Keterangan</div>
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div class="flex items-center gap-2">
+            <svg width="48" height="8"><path [attr.stroke]="spouseColor" stroke-width="3" d="M1 4 L47 4"/></svg>
+            <span>Pasangan (menikah)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <svg width="48" height="8"><path [attr.stroke]="spouseDivorcedColor" stroke-width="3" stroke-dasharray="4 4" d="M1 4 L47 4"/></svg>
+            <span>Pasangan (cerai)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <svg width="48" height="8"><path stroke="#60a5fa" stroke-width="3" d="M1 4 L47 4"/></svg>
+            <span>Parent → child</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <svg width="48" height="8"><path stroke="#60a5fa" stroke-width="3" stroke-dasharray="2 6" d="M1 4 L47 4"/></svg>
+            <span>Anak adopsi</span>
+          </div>
+        </div>
+        <div class="text-xs font-medium mt-3 mb-1">Warna generasi</div>
+        <div class="flex flex-wrap gap-3 text-[11px]">
+          <div class="flex items-center gap-2" *ngFor="let c of genColors; let i = index">
+            <svg width="48" height="8"><path [attr.stroke]="c" stroke-width="3" d="M1 4 L47 4"/></svg>
+            <span>Gen {{ i + 1 }}</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Details panel -->
       <div *ngIf="selected" class="mt-4 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
         <div class="flex items-center gap-3">
@@ -132,44 +162,50 @@ export class TreeNodeRefDirective {
 })
 export class TreeComponent {
   root: Person = {
-    id: 'p1',
-    name: 'Elizabeth',
-    spouse: { id: 'p1s', name: 'Philip' },
+    id: 'g1',
+    name: 'Kakek',
+    spouse: { id: 'g1s', name: 'Nenek' },
     spouseStatus: 'married',
     children: [
       {
-        id: 'p2',
-        name: 'Charles',
-        spouse: { id: 'p2s', name: 'Diana' },
-        spouseStatus: 'divorced',
+        id: 'p1',
+        name: 'Ayah',
+        spouse: { id: 'p1s', name: 'Ibu' },
+        spouseStatus: 'married',
         children: [
+          { id: 'c1', name: 'Anak 1' },
           {
-            id: 'p3',
-            name: 'William',
-            spouse: { id: 'p3s', name: 'Middleton' },
+            id: 'c2',
+            name: 'Anak 2',
+            spouse: { id: 'c2s', name: 'Pasangan Anak 2' },
             spouseStatus: 'married',
             children: [
-              { id: 'p3c1', name: 'George' },
-              { id: 'p3c2', name: 'Charlotte' },
-              { id: 'p3c3', name: 'Louis' },
-            ],
-          },
-          {
-            id: 'p4',
-            name: 'Harry',
-            spouse: { id: 'p4s', name: 'Markle' },
-            spouseStatus: 'married',
-            children: [
-              { id: 'p4c1', name: 'Archie' },
-              { id: 'p4c2', name: 'Lilibet' },
-            ],
-          },
-        ],
+              { id: 'gc1', name: 'Cucu 1' },
+              { id: 'gc2', name: 'Cucu 2' }
+            ]
+          }
+        ]
       },
-      { id: 'p5', name: 'Anne' },
-      { id: 'p6', name: 'Andrew' },
-      { id: 'p7', name: 'Edward' },
-    ],
+      {
+        id: 'u1',
+        name: 'Paman',
+        spouse: { id: 'u1s', name: 'Bibi' },
+        spouseStatus: 'married',
+        children: [
+          { id: 'uc1', name: 'Sepupu 1' }
+        ]
+      },
+      {
+        id: 'a1',
+        name: 'Tante',
+        spouse: { id: 'a1s', name: 'Om' },
+        spouseStatus: 'married',
+        children: [
+          { id: 'ac1', name: 'Sepupu 2' },
+          { id: 'ac2', name: 'Sepupu 3' }
+        ]
+      }
+    ]
   };
 
   initials(name: string): string {
@@ -202,6 +238,10 @@ export class TreeComponent {
   connectors: { d: string; color: string; w?: number; dash?: string }[] = [];
   canvasW = 0;
   canvasH = 0;
+  // colors for legend and drawing
+  genColors = ['#94a3b8', '#60a5fa', '#a78bfa', '#34d399', '#fbbf24'];
+  spouseColor = '#fb7185';
+  spouseDivorcedColor = '#9ca3af';
 
   constructor() {
     // recalc after initial render
@@ -229,9 +269,10 @@ export class TreeComponent {
     const contentEl = this.content.nativeElement;
     const box = contentEl.getBoundingClientRect();
 
-    // Set canvas size to content scroll size so it scrolls together
-    this.canvasW = Math.max(contentEl.scrollWidth, box.width);
-    this.canvasH = Math.max(contentEl.scrollHeight, box.height);
+    // Set canvas size to content scroll size (unscaled units),
+    // SVG and content are scaled together by the same wrapper transform.
+    this.canvasW = contentEl.scrollWidth;
+    this.canvasH = contentEl.scrollHeight;
 
     const byId = new Map<string, DOMRect>();
     for (const ref of this.nodeRefs.toArray()) {
@@ -247,10 +288,6 @@ export class TreeComponent {
     }
 
     const paths: { d: string; color: string; w?: number; dash?: string }[] = [];
-
-    const colors = ['#94a3b8', '#60a5fa', '#a78bfa', '#34d399', '#fbbf24']; // slate-400, blue-400, violet-400, green-400, amber-400
-    const spouseColor = '#fb7185'; // rose-400 (married)
-    const spouseDivorcedColor = '#9ca3af'; // gray-400
 
     const getCenterBottom = (id: string): { x: number; y: number } | null => {
       const r = byId.get(id);
@@ -299,7 +336,7 @@ export class TreeComponent {
           const y = (a.top + a.height / 2 + b.top + b.height / 2) / 2;
           const d = `M ${a.right} ${y} L ${b.left} ${y}`;
           const divorced = p.spouseStatus === 'divorced';
-          paths.push({ d, color: divorced ? spouseDivorcedColor : spouseColor, w: 2, dash: divorced ? '4 4' : undefined });
+          paths.push({ d, color: divorced ? this.spouseDivorcedColor : this.spouseColor, w: 2, dash: divorced ? '4 4' : undefined });
         }
       }
 
@@ -307,7 +344,7 @@ export class TreeComponent {
       const parentAnchor = getCoupleAnchor(p);
       if (!parentAnchor) return;
       const { x: px, y: py } = parentAnchor;
-      const color = colors[depth % colors.length];
+      const color = this.genColors[depth % this.genColors.length];
 
       for (const c of p.children) {
         const childTop = getChildTopCenter(c);

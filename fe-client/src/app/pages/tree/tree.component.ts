@@ -29,6 +29,14 @@ export class TreeNodeRefDirective {
       <h2 class="text-xl font-semibold">Family Tree</h2>
       <p class="text-xs text-gray-600 dark:text-gray-300">Data dummy untuk demontrasi graph.</p>
 
+      <!-- Toolbar -->
+      <div class="flex flex-wrap items-center gap-2 text-xs">
+        <button class="px-2.5 py-1 rounded-lg border border-gray-200 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-900" (click)="expandAll()">Expand Semua</button>
+        <button class="px-2.5 py-1 rounded-lg border border-gray-200 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-900" (click)="collapseAll()">Collapse Semua</button>
+        <button class="px-2.5 py-1 rounded-lg border border-gray-200 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-900" (click)="centerOnRoot()">Pusatkan Root</button>
+        <span class="ml-auto text-[11px] text-gray-500">Layout: Vertical</span>
+      </div>
+
       <div #scrollBox class="relative overflow-auto max-w-full max-h-[70svh] rounded-lg border border-gray-200 dark:border-neutral-800">
         <div class="origin-top-left" [ngStyle]="{ transform: 'scale(' + zoom + ')' }">
           <!-- SVG connectors overlay -->
@@ -115,22 +123,8 @@ export class TreeNodeRefDirective {
             <svg width="48" height="8"><path [attr.stroke]="spouseDivorcedColor" stroke-width="3" stroke-dasharray="4 4" d="M1 4 L47 4"/></svg>
             <span>Pasangan (cerai)</span>
           </div>
-          <div class="flex items-center gap-2">
-            <svg width="48" height="8"><path stroke="#60a5fa" stroke-width="3" d="M1 4 L47 4"/></svg>
-            <span>Parent → child</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <svg width="48" height="8"><path stroke="#60a5fa" stroke-width="3" stroke-dasharray="2 6" d="M1 4 L47 4"/></svg>
-            <span>Anak adopsi</span>
-          </div>
         </div>
-        <div class="text-xs font-medium mt-3 mb-1">Warna generasi</div>
-        <div class="flex flex-wrap gap-3 text-[11px]">
-          <div class="flex items-center gap-2" *ngFor="let c of genColors; let i = index">
-            <svg width="48" height="8"><path [attr.stroke]="c" stroke-width="3" d="M1 4 L47 4"/></svg>
-            <span>Gen {{ i + 1 }}</span>
-          </div>
-        </div>
+        
       </div>
 
       <!-- Details panel -->
@@ -238,10 +232,12 @@ export class TreeComponent {
   connectors: { d: string; color: string; w?: number; dash?: string }[] = [];
   canvasW = 0;
   canvasH = 0;
-  // colors for legend and drawing
-  genColors = ['#94a3b8', '#60a5fa', '#a78bfa', '#34d399', '#fbbf24'];
+  // single edge color for all generations
+  edgeColor = '#94a3b8';
   spouseColor = '#fb7185';
   spouseDivorcedColor = '#9ca3af';
+  // last positions cache for centering
+  private lastById: Map<string, DOMRect> = new Map();
 
   constructor() {
     // recalc after initial render
@@ -286,6 +282,7 @@ export class TreeComponent {
       );
       byId.set(ref.id, local);
     }
+    this.lastById = byId;
 
     const paths: { d: string; color: string; w?: number; dash?: string }[] = [];
 
@@ -341,20 +338,8 @@ export class TreeComponent {
       }
 
       if (!p.children || p.children.length === 0 || this.isCollapsed(p)) return;
-      const parentAnchor = getCoupleAnchor(p);
-      if (!parentAnchor) return;
-      const { x: px, y: py } = parentAnchor;
-      const color = this.genColors[depth % this.genColors.length];
-
       for (const c of p.children) {
-        const childTop = getChildTopCenter(c);
-        if (!childTop) continue;
-        const cx = childTop.x;
-        const cy = childTop.y;
-        const midY = (py + cy) / 2;
-        const d = `M ${px} ${py} L ${px} ${midY} L ${cx} ${midY} L ${cx} ${cy}`;
-        const dash = c.adopted ? '2 6' : undefined;
-        paths.push({ d, color, w: 2, dash });
+        // Tidak menggambar garis parent→child; hanya teruskan rekursi untuk pasangan di level bawah
         walk(c, depth + 1);
       }
     };
@@ -416,5 +401,29 @@ export class TreeComponent {
     if (!this.scrollBox) return;
     this.isPanning = false;
     this.scrollBox.nativeElement.style.cursor = '';
+  }
+
+  // Toolbar actions
+  expandAll() {
+    const visit = (p: Person) => { if (p.children) p.children.forEach(visit); };
+    this.collapsed.clear();
+    visit(this.root);
+    this.scheduleRecalc();
+  }
+  collapseAll() {
+    const visit = (p: Person) => { if (p.children && p.children.length) { this.collapsed.add(p.id); p.children.forEach(visit); } };
+    this.collapsed.clear();
+    visit(this.root);
+    this.scheduleRecalc();
+  }
+  centerOnRoot() {
+    if (!this.scrollBox || this.lastById.size === 0) return;
+    const r = this.lastById.get(this.root.id);
+    if (!r) return;
+    const sb = this.scrollBox.nativeElement;
+    const targetX = r.left + r.width / 2;
+    const targetY = r.top + r.height / 2;
+    sb.scrollLeft = Math.max(0, targetX * this.zoom - sb.clientWidth / 2);
+    sb.scrollTop = Math.max(0, targetY * this.zoom - sb.clientHeight / 2);
   }
 }

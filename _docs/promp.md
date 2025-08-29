@@ -1,0 +1,2 @@
+perhatikan ada Details panel, buatk agar detail panel tetap tampil walaupun node/user belum di pilih namun buat keterangna agar tetap membantu user (ux) 
+canva buat minimal heigt dan width sesuai dengan besar device yang membuka

@@ -6,9 +6,6 @@ import { Component } from '@angular/core';
   template: `
     <section class="space-y-4">
       <h2 class="text-xl font-semibold">Halo 👋</h2>
-      <p class="text-sm text-gray-600 dark:text-gray-300">
-        Ini adalah contoh layout mobile menggunakan Angular + Tailwind CSS.
-      </p>
 
       <div class="grid grid-cols-2 gap-3">
         <button class="rounded-xl bg-indigo-600 text-white px-4 py-3 text-sm font-medium active:scale-[0.99]">Mulai</button>

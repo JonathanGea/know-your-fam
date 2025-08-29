@@ -13,6 +13,7 @@ import { TreeNodeRefDirective } from './tree-node-ref.directive';
   
 })
 export class TreeComponent {
+  viewRoot!: Person;
   root: Person = {
     id: 'g1',
     name: 'Kakek',
@@ -75,9 +76,23 @@ export class TreeComponent {
     return this.collapsed.has(node.id);
   }
 
+  private manualShowAll = new Set<string>();
   toggle(node: Person): void {
-    if (this.collapsed.has(node.id)) this.collapsed.delete(node.id);
-    else this.collapsed.add(node.id);
+    if (this.focusMode) {
+      const wasCollapsed = this.collapsed.has(node.id);
+      if (!wasCollapsed && !this.manualShowAll.has(node.id)) {
+        this.manualShowAll.add(node.id);
+        this.scheduleRecalc();
+        return;
+      }
+    }
+    if (this.collapsed.has(node.id)) {
+      this.collapsed.delete(node.id);
+      if (this.focusMode) this.manualShowAll.add(node.id);
+    } else {
+      this.collapsed.add(node.id);
+      if (this.focusMode) this.manualShowAll.delete(node.id);
+    }
     this.scheduleRecalc();
     try { localStorage.setItem('tree:collapsed', JSON.stringify(Array.from(this.collapsed))); } catch {}
   }
@@ -95,10 +110,14 @@ export class TreeComponent {
   spouseDivorcedColor = '#9ca3af';
   highlightColor = '#6366f1';
   // internal state only for drawing
-  private nodeRects: Map<string, DOMRect> = new Map();
   private highlighted = new Set<string>();
+  // user setting: how many generations above selected become the view root
+  focusAncestors = 3;
+  // user setting: how many descendant levels to expand under selected
+  focusDescendants = 1;
 
   constructor() {
+    this.viewRoot = this.root;
     // recalc after initial render on next macrotask to avoid NG0100
     setTimeout(() => this.recalc());
     // restore collapsed state
@@ -109,7 +128,19 @@ export class TreeComponent {
         this.collapsed = new Set(arr);
       }
     } catch {}
+    // restore focus ancestors pref
+    try {
+      const rawAnc = localStorage.getItem('tree:focusAnc');
+      if (rawAnc != null) this.focusAncestors = Math.max(0, Math.min(10, parseInt(rawAnc, 10) || 0));
+    } catch {}
+    try {
+      const rawDesc = localStorage.getItem('tree:focusDesc');
+      if (rawDesc != null) this.focusDescendants = Math.max(0, Math.min(10, parseInt(rawDesc, 10) || 0));
+    } catch {}
   }
+  focusMode = false;
+  private pathToSelected: Person[] = [];
+  private nextChildId: Map<string, string> = new Map();
 
   @HostListener('window:resize') onResize() {
     this.scheduleRecalc();
@@ -141,7 +172,7 @@ export class TreeComponent {
       );
       byId.set(ref.id, local);
     }
-    this.nodeRects = byId;
+    // no persistent rect cache; keep local
 
     const paths: { d: string; color: string; w?: number; dash?: string }[] = [];
 
@@ -198,24 +229,53 @@ export class TreeComponent {
       }
 
       if (!p.children || p.children.length === 0 || this.isCollapsed(p)) return;
-      for (const c of p.children) {
+      const children = this.filteredChildren(p);
+      for (const c of children) {
         // Tidak menggambar garis parent→child; hanya teruskan rekursi untuk pasangan di level bawah
         walk(c, depth + 1);
       }
     };
-    walk(this.root, 0);
+    walk(this.viewRoot, 0);
     this.connectors = paths;
   }
 
-  // selection/tooltip panel + highlighting
+  // selection/tooltip panel + focus logic
   selected: Person | null = null;
   select(p: Person) {
     this.selected = p;
-    this.computeHighlight();
-    this.scheduleRecalc();
+    this.applyFocus(p);
   }
   findSpouse(p: Person): Person | null { return p.spouse ?? null; }
   findSpouseStatus(p: Person): string | null { return p.spouseStatus ?? null; }
+  filteredChildren(node: Person): Person[] {
+    if (!node.children) return [];
+    if (!this.focusMode) return node.children;
+    if (this.selected && node.id === this.selected.id) return node.children;
+    if (this.manualShowAll.has(node.id)) return node.children;
+    // if node is a descendant of selected, allow showing its children up to configured depth
+    const d = this.depthFromSelected(node);
+    if (d >= 0) {
+      if (d < this.focusDescendants) return node.children;
+      return [];
+    }
+    const nextId = this.nextChildId.get(node.id);
+    if (!nextId) return [];
+    const child = node.children.find(c => c.id === nextId);
+    return child ? [child] : [];
+  }
+  private depthFromSelected(node: Person): number {
+    if (!this.selected) return -1;
+    const search = (p: Person, depth: number): number => {
+      if (p.id === node.id) return depth;
+      if (!p.children) return -1;
+      for (const c of p.children) {
+        const r = search(c, depth + 1);
+        if (r !== -1) return r;
+      }
+      return -1;
+    };
+    return search(this.selected, 0);
+  }
   private computeHighlight() {
     this.highlighted.clear();
     const s = this.selected;
@@ -250,18 +310,67 @@ export class TreeComponent {
     acc.pop();
     return false;
   }
+  private collectWithChildren(from: Person, sink: Set<string>) {
+    if (from.children && from.children.length) sink.add(from.id);
+    if (from.children) from.children.forEach(ch => this.collectWithChildren(ch, sink));
+  }
+  private applyFocus(p: Person) {
+    // compute path from root to selected
+    const path: Person[] = [];
+    const ok = this.findPath(this.root, p.id, path);
+    if (!ok) {
+      this.focusMode = false;
+      this.viewRoot = this.root;
+      this.scheduleRecalc();
+      return;
+    }
+    this.focusMode = true;
+    this.pathToSelected = path.slice();
+    // view root = up to 3 generations above selected
+    const selIdx = path.length - 1;
+    const anc = Math.max(0, Math.min(10, Math.floor(this.focusAncestors)));
+    const topIdx = Math.max(0, selIdx - anc);
+    this.viewRoot = path[topIdx]!;
+    // map next child along path from viewRoot to selected
+    this.nextChildId.clear();
+    this.manualShowAll.clear();
+    for (let i = topIdx; i < selIdx; i++) {
+      this.nextChildId.set(path[i]!.id, path[i + 1]!.id);
+    }
+    // collapse everything under viewRoot
+    const newCollapsed = new Set<string>();
+    this.collectWithChildren(this.viewRoot, newCollapsed);
+    // uncollapse nodes along path from viewRoot to selected
+    for (let i = topIdx; i <= selIdx; i++) {
+      newCollapsed.delete(path[i]!.id);
+    }
+    // show only one level below selected: collapse each child of selected to hide grandchildren
+    const sel = path[selIdx]!;
+    if (sel.children) sel.children.forEach(ch => newCollapsed.add(ch.id));
+    this.collapsed = newCollapsed;
+    this.computeHighlight();
+    this.scheduleRecalc();
+  }
+  onFocusAncestorsChange(val: any) {
+    const n = typeof val === 'number' ? val : parseInt(String(val), 10);
+    if (Number.isFinite(n as any)) {
+      this.focusAncestors = Math.max(0, Math.min(10, Math.floor(n as any)));
+      try { localStorage.setItem('tree:focusAnc', String(this.focusAncestors)); } catch {}
+      if (this.selected) this.applyFocus(this.selected);
+    }
+  }
+  onFocusDescendantsChange(val: any) {
+    const n = typeof val === 'number' ? val : parseInt(String(val), 10);
+    if (Number.isFinite(n as any)) {
+      this.focusDescendants = Math.max(0, Math.min(10, Math.floor(n as any)));
+      try { localStorage.setItem('tree:focusDesc', String(this.focusDescendants)); } catch {}
+      if (this.selected) this.applyFocus(this.selected);
+      else this.scheduleRecalc();
+    }
+  }
   isHighlighted(p: Person): boolean { return this.highlighted.has(p.id); }
   hasHighlight(): boolean { return this.highlighted.size > 0; }
-  focusSelection() {
-    if (!this.scrollBox || !this.selected) return;
-    const r = this.nodeRects.get(this.selected.id);
-    if (!r) return;
-    const sb = this.scrollBox.nativeElement;
-    const targetX = r.left + r.width / 2;
-    const targetY = r.top + r.height / 2;
-    sb.scrollLeft = Math.max(0, targetX * this.zoom - sb.clientWidth / 2);
-    sb.scrollTop = Math.max(0, targetY * this.zoom - sb.clientHeight / 2);
-  }
+  // focusSelection removed (button deleted)
 
   // pan/zoom (drag to scroll; Ctrl+wheel to zoom)
   zoom = 1;
@@ -361,9 +470,12 @@ export class TreeComponent {
   private panStart = { x: 0, y: 0, sl: 0, st: 0 };
   @HostListener('mousedown', ['$event'])
   onDown(ev: MouseEvent) {
-    if (!this.scrollBox) return;
+    if (!this.scrollBox || !this.gesture) return;
     const target = ev.target as HTMLElement;
-    if (target.closest('button')) return; // ignore clicks on controls
+    // only start panning when interacting inside gesture area (the canvas)
+    if (!this.gesture.nativeElement.contains(target)) return;
+    // ignore interactive controls
+    if (target.closest('button,select,input,textarea,a,[role="button"],[role="listbox"]')) return;
     this.isPanning = true;
     this.panStart = { x: ev.clientX, y: ev.clientY, sl: this.scrollBox.nativeElement.scrollLeft, st: this.scrollBox.nativeElement.scrollTop };
     this.scrollBox.nativeElement.style.cursor = 'grabbing';

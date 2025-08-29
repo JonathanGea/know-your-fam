@@ -1,141 +1,16 @@
-import { Component, Directive, ElementRef, HostListener, Input, QueryList, ViewChild, ViewChildren } from '@angular/core';
+import { Component, ElementRef, HostListener, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Person } from './person.model';
+import { TreeNodeRefDirective } from './tree-node-ref.directive';
 
-type Person = {
-  id: string;
-  name: string;
-  born?: number;
-  spouse?: Person; // pasangan
-  spouseStatus?: 'married' | 'divorced';
-  adopted?: boolean; // if adopted relative to parent edge in this tree
-  children?: Person[];
-};
-
-@Directive({
-  selector: '[treeNodeRef]',
-  standalone: true,
-})
-export class TreeNodeRefDirective {
-  @Input('treeNodeRef') id!: string;
-  constructor(public el: ElementRef<HTMLElement>) {}
-}
+ 
 
 @Component({
   selector: 'app-tree',
   standalone: true,
   imports: [CommonModule, TreeNodeRefDirective],
-  template: `
-    <section class="space-y-4">
-      <h2 class="text-xl font-semibold">Family Tree</h2>
-      <p class="text-xs text-gray-600 dark:text-gray-300">Data dummy untuk demontrasi graph.</p>
-
-      <!-- Toolbar -->
-      <div class="flex flex-wrap items-center gap-2 text-xs">
-        <button class="px-2.5 py-1 rounded-lg border border-gray-200 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-900" (click)="expandAll()">Expand Semua</button>
-        <button class="px-2.5 py-1 rounded-lg border border-gray-200 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-900" (click)="collapseAll()">Collapse Semua</button>
-      </div>
-
-      <div #scrollBox class="relative overflow-auto max-w-full max-h-[70svh] rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-        <div #gesture class="origin-top-left touch-none" [ngStyle]="{ transform: 'scale(' + zoom + ')' }">
-          <!-- SVG connectors overlay (always present; draws nothing when empty) -->
-          <svg class="absolute left-0 top-0 pointer-events-none"
-               [attr.width]="canvasW" [attr.height]="canvasH">
-            <g fill="none">
-              <path *ngFor="let c of connectors"
-                    [attr.d]="c.d" [attr.stroke]="c.color" [attr.stroke-width]="c.w || 2"
-                    [attr.stroke-dasharray]="c.dash || null" stroke-linecap="round" />
-            </g>
-          </svg>
-          <div #content class="min-w-[20rem] relative p-3">
-            <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: root, depth: 0 }"></ng-container>
-          </div>
-        </div>
-      </div>
-
-      <ng-template #nodeTpl let-node let-depth="depth">
-        <div class="relative pl-4" [ngClass]="{ 'pt-3': depth > 0 }">
-          <!-- connector line from parent -->
-          <div *ngIf="depth > 0" class="absolute left-0 top-0 h-full border-l border-gray-200 dark:border-neutral-800"></div>
-
-          <!-- couple row (node + optional spouse) -->
-          <div class="relative z-[1] inline-flex items-center gap-4">
-            <!-- person card -->
-            <div class="inline-flex items-center gap-3 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 shadow-sm cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-neutral-800/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 w-52"
-                 (click)="select(node)" [treeNodeRef]="node.id">
-              <div class="size-8 rounded-full bg-indigo-600 text-white grid place-items-center text-xs font-semibold shrink-0">
-                {{ initials(node.name) }}
-              </div>
-              <div class="min-w-0">
-                <div class="text-sm font-medium leading-tight break-words line-clamp-2">{{ node.name }}</div>
-                <div class="text-[11px] text-gray-500 mt-0.5" [class.invisible]="!node.born">b. {{ node.born || '' }}</div>
-              </div>
-            </div>
-
-            <!-- spouse card (optional) -->
-            <ng-container *ngIf="node.spouse as s">
-              <div class="h-px w-4 bg-rose-300 dark:bg-rose-400/50" aria-hidden="true"></div>
-              <div class="inline-flex items-center gap-3 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 shadow-sm cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-neutral-800/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 w-52"
-                   (click)="select(s)" [treeNodeRef]="s.id">
-                <div class="size-8 rounded-full bg-fuchsia-600 text-white grid place-items-center text-xs font-semibold shrink-0">
-                  {{ initials(s.name) }}
-                </div>
-                <div class="min-w-0">
-                  <div class="text-sm font-medium leading-tight break-words line-clamp-2">{{ s.name }}</div>
-                  <div class="text-[11px] text-gray-500 mt-0.5" [class.invisible]="!s.born">b. {{ s.born || '' }}</div>
-                </div>
-              </div>
-            </ng-container>
-
-            <!-- expand toggle at end if has children -->
-            <button *ngIf="node.children?.length"
-              class="ml-1 p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-              (click)="toggle(node)"
-              [attr.aria-expanded]="!isCollapsed(node)"
-              aria-label="Toggle children">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
-                   class="size-5 transition-transform"
-                   [ngClass]="{ 'rotate-90': !isCollapsed(node) }">
-                <path fill-rule="evenodd" d="M8.03 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06L14.94 12 8.03 5.03a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
-              </svg>
-            </button>
-          </div>
-
-          <!-- children -->
-          <div *ngIf="node.children?.length && !isCollapsed(node)" class="pl-6 mt-2 space-y-2">
-            <ng-container *ngFor="let child of node.children">
-              <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: child, depth: depth + 1 }"></ng-container>
-            </ng-container>
-          </div>
-        </div>
-      </ng-template>
-
-
-      <!-- Details panel -->
-      <div *ngIf="selected" class="mt-4 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
-        <div class="flex items-center gap-3">
-          <div class="size-10 rounded-full bg-indigo-600 text-white grid place-items-center text-sm font-semibold">
-            {{ initials(selected.name) }}
-          </div>
-          <div>
-            <div class="font-semibold">{{ selected.name }}</div>
-            <div class="text-xs text-gray-500" *ngIf="selected.born">b. {{ selected.born }}</div>
-          </div>
-        </div>
-        <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-          <div>
-            <div class="text-gray-500">Pasangan</div>
-            <div>{{ findSpouse(selected)?.name || '-' }}
-              <span *ngIf="findSpouseStatus(selected) as st" class="ml-1 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-neutral-800">{{ st }}</span>
-            </div>
-          </div>
-          <div>
-            <div class="text-gray-500">Anak</div>
-            <div>{{ (selected.children?.length || 0) }}</div>
-          </div>
-        </div>
-      </div>
-    </section>
-  `,
+  templateUrl: './tree.component.html',
+  
 })
 export class TreeComponent {
   root: Person = {
@@ -218,7 +93,10 @@ export class TreeComponent {
   canvasH = 0;
   spouseColor = '#fb7185';
   spouseDivorcedColor = '#9ca3af';
+  highlightColor = '#6366f1';
   // internal state only for drawing
+  private nodeRects: Map<string, DOMRect> = new Map();
+  private highlighted = new Set<string>();
 
   constructor() {
     // recalc after initial render on next macrotask to avoid NG0100
@@ -263,7 +141,7 @@ export class TreeComponent {
       );
       byId.set(ref.id, local);
     }
-    // byId remains local; no external centering state needed
+    this.nodeRects = byId;
 
     const paths: { d: string; color: string; w?: number; dash?: string }[] = [];
 
@@ -314,7 +192,8 @@ export class TreeComponent {
           const y = (a.top + a.height / 2 + b.top + b.height / 2) / 2;
           const d = `M ${a.right} ${y} L ${b.left} ${y}`;
           const divorced = p.spouseStatus === 'divorced';
-          paths.push({ d, color: divorced ? this.spouseDivorcedColor : this.spouseColor, w: 2, dash: divorced ? '4 4' : undefined });
+          const anyHi = this.highlighted.size > 0 && (this.highlighted.has(p.id) || this.highlighted.has(p.spouse.id));
+          paths.push({ d, color: anyHi ? this.highlightColor : (divorced ? this.spouseDivorcedColor : this.spouseColor), w: anyHi ? 3 : 2, dash: divorced ? '4 4' : undefined });
         }
       }
 
@@ -328,11 +207,61 @@ export class TreeComponent {
     this.connectors = paths;
   }
 
-  // selection/tooltip panel
+  // selection/tooltip panel + highlighting
   selected: Person | null = null;
-  select(p: Person) { this.selected = p; }
+  select(p: Person) {
+    this.selected = p;
+    this.computeHighlight();
+    this.scheduleRecalc();
+  }
   findSpouse(p: Person): Person | null { return p.spouse ?? null; }
   findSpouseStatus(p: Person): string | null { return p.spouseStatus ?? null; }
+  private computeHighlight() {
+    this.highlighted.clear();
+    const s = this.selected;
+    if (!s) return;
+    // ancestors path
+    const path: Person[] = [];
+    if (this.findPath(this.root, s.id, path)) {
+      for (const n of path) {
+        this.highlighted.add(n.id);
+        if (n.spouse) this.highlighted.add(n.spouse.id);
+      }
+    }
+    // descendants from selected
+    const addDesc = (p: Person) => {
+      if (!p.children) return;
+      for (const c of p.children) {
+        this.highlighted.add(c.id);
+        if (c.spouse) this.highlighted.add(c.spouse.id);
+        addDesc(c);
+      }
+    };
+    addDesc(s);
+  }
+  private findPath(cur: Person, targetId: string, acc: Person[]): boolean {
+    acc.push(cur);
+    if (cur.id === targetId || cur.spouse?.id === targetId) return true;
+    if (cur.children) {
+      for (const ch of cur.children) {
+        if (this.findPath(ch, targetId, acc)) return true;
+      }
+    }
+    acc.pop();
+    return false;
+  }
+  isHighlighted(p: Person): boolean { return this.highlighted.has(p.id); }
+  hasHighlight(): boolean { return this.highlighted.size > 0; }
+  focusSelection() {
+    if (!this.scrollBox || !this.selected) return;
+    const r = this.nodeRects.get(this.selected.id);
+    if (!r) return;
+    const sb = this.scrollBox.nativeElement;
+    const targetX = r.left + r.width / 2;
+    const targetY = r.top + r.height / 2;
+    sb.scrollLeft = Math.max(0, targetX * this.zoom - sb.clientWidth / 2);
+    sb.scrollTop = Math.max(0, targetY * this.zoom - sb.clientHeight / 2);
+  }
 
   // pan/zoom (drag to scroll; Ctrl+wheel to zoom)
   zoom = 1;

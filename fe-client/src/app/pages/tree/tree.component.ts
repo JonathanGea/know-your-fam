@@ -26,15 +26,42 @@ export class TreeComponent {
         spouse: { id: 'p1s', name: 'Ibu' },
         spouseStatus: 'married',
         children: [
-          { id: 'c1', name: 'Anak 1' },
+          {
+            id: 'c1',
+            name: 'Anak 1',
+            spouse: { id: 'c1s', name: 'Pasangan Anak 1' },
+            spouseStatus: 'married',
+            children: [
+              { id: 'gc1a', name: 'Cucu 1A' },
+              { id: 'gc1b', name: 'Cucu 1B', adopted: true }
+            ]
+          },
           {
             id: 'c2',
             name: 'Anak 2',
             spouse: { id: 'c2s', name: 'Pasangan Anak 2' },
             spouseStatus: 'married',
             children: [
-              { id: 'gc1', name: 'Cucu 1' },
+              {
+                id: 'gc1',
+                name: 'Cucu 1',
+                spouse: { id: 'gc1s', name: 'Pasangan Cucu 1' },
+                spouseStatus: 'married',
+                children: [
+                  { id: 'ggc1a', name: 'Cicit 1A' },
+                  { id: 'ggc1b', name: 'Cicit 1B' }
+                ]
+              },
               { id: 'gc2', name: 'Cucu 2' }
+            ]
+          },
+          {
+            id: 'c3',
+            name: 'Anak 3',
+            spouse: { id: 'c3s', name: 'Mantan' },
+            spouseStatus: 'divorced',
+            children: [
+              { id: 'gc3a', name: 'Cucu 3' }
             ]
           }
         ]
@@ -45,7 +72,16 @@ export class TreeComponent {
         spouse: { id: 'u1s', name: 'Bibi' },
         spouseStatus: 'married',
         children: [
-          { id: 'uc1', name: 'Sepupu 1' }
+          { id: 'uc1', name: 'Sepupu 1' },
+          {
+            id: 'uc2',
+            name: 'Sepupu A',
+            spouse: { id: 'uc2s', name: 'Pasangan Sepupu A' },
+            spouseStatus: 'married',
+            children: [
+              { id: 'u2c1', name: 'Keponakan 1' }
+            ]
+          }
         ]
       },
       {
@@ -54,8 +90,30 @@ export class TreeComponent {
         spouse: { id: 'a1s', name: 'Om' },
         spouseStatus: 'married',
         children: [
-          { id: 'ac1', name: 'Sepupu 2' },
-          { id: 'ac2', name: 'Sepupu 3' }
+          {
+            id: 'ac1',
+            name: 'Sepupu 2',
+            spouse: { id: 'ac1s', name: 'Pasangan Sepupu 2' },
+            spouseStatus: 'married'
+          },
+          {
+            id: 'ac2',
+            name: 'Sepupu 3',
+            spouse: { id: 'ac2s', name: 'Pasangan Sepupu 3' },
+            spouseStatus: 'married',
+            children: [
+              { id: 'ac2c1', name: 'Keponakan 2', adopted: true }
+            ]
+          }
+        ]
+      },
+      {
+        id: 'b1',
+        name: 'Bungsu',
+        spouse: { id: 'b1s', name: 'Istri Bungsu' },
+        spouseStatus: 'married',
+        children: [
+          { id: 'b1c1', name: 'Sepupu 4' }
         ]
       }
     ]

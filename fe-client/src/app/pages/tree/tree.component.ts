@@ -1,4 +1,4 @@
-import { Component, Directive, ElementRef, HostListener, Input, QueryList, ViewChild, ViewChildren, afterNextRender } from '@angular/core';
+import { Component, Directive, ElementRef, HostListener, Input, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 type Person = {
@@ -33,13 +33,11 @@ export class TreeNodeRefDirective {
       <div class="flex flex-wrap items-center gap-2 text-xs">
         <button class="px-2.5 py-1 rounded-lg border border-gray-200 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-900" (click)="expandAll()">Expand Semua</button>
         <button class="px-2.5 py-1 rounded-lg border border-gray-200 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-900" (click)="collapseAll()">Collapse Semua</button>
-        <button class="px-2.5 py-1 rounded-lg border border-gray-200 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-900" (click)="centerOnRoot()">Pusatkan Root</button>
-        <span class="ml-auto text-[11px] text-gray-500">Layout: Vertical</span>
       </div>
 
-      <div #scrollBox class="relative overflow-auto max-w-full max-h-[70svh] rounded-lg border border-gray-200 dark:border-neutral-800">
-        <div class="origin-top-left" [ngStyle]="{ transform: 'scale(' + zoom + ')' }">
-          <!-- SVG connectors overlay -->
+      <div #scrollBox class="relative overflow-auto max-w-full max-h-[70svh] rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
+        <div #gesture class="origin-top-left touch-none" [ngStyle]="{ transform: 'scale(' + zoom + ')' }">
+          <!-- SVG connectors overlay (always present; draws nothing when empty) -->
           <svg class="absolute left-0 top-0 pointer-events-none"
                [attr.width]="canvasW" [attr.height]="canvasH">
             <g fill="none">
@@ -48,7 +46,7 @@ export class TreeNodeRefDirective {
                     [attr.stroke-dasharray]="c.dash || null" stroke-linecap="round" />
             </g>
           </svg>
-          <div #content class="min-w-[20rem] relative">
+          <div #content class="min-w-[20rem] relative p-3">
             <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: root, depth: 0 }"></ng-container>
           </div>
         </div>
@@ -62,35 +60,35 @@ export class TreeNodeRefDirective {
           <!-- couple row (node + optional spouse) -->
           <div class="relative z-[1] inline-flex items-center gap-4">
             <!-- person card -->
-            <div class="inline-flex items-center gap-3 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 shadow-sm cursor-pointer select-none"
+            <div class="inline-flex items-center gap-3 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 shadow-sm cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-neutral-800/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 w-52"
                  (click)="select(node)" [treeNodeRef]="node.id">
-              <div class="size-8 rounded-full bg-indigo-600 text-white grid place-items-center text-xs font-semibold">
+              <div class="size-8 rounded-full bg-indigo-600 text-white grid place-items-center text-xs font-semibold shrink-0">
                 {{ initials(node.name) }}
               </div>
-              <div>
-                <div class="text-sm font-medium">{{ node.name }}</div>
-                <div class="text-[11px] text-gray-500" *ngIf="node.born">b. {{ node.born }}</div>
+              <div class="min-w-0">
+                <div class="text-sm font-medium leading-tight break-words line-clamp-2">{{ node.name }}</div>
+                <div class="text-[11px] text-gray-500 mt-0.5" [class.invisible]="!node.born">b. {{ node.born || '' }}</div>
               </div>
             </div>
 
             <!-- spouse card (optional) -->
             <ng-container *ngIf="node.spouse as s">
               <div class="h-px w-4 bg-rose-300 dark:bg-rose-400/50" aria-hidden="true"></div>
-              <div class="inline-flex items-center gap-3 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 shadow-sm cursor-pointer select-none"
+              <div class="inline-flex items-center gap-3 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 shadow-sm cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-neutral-800/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 w-52"
                    (click)="select(s)" [treeNodeRef]="s.id">
-                <div class="size-8 rounded-full bg-fuchsia-600 text-white grid place-items-center text-xs font-semibold">
+                <div class="size-8 rounded-full bg-fuchsia-600 text-white grid place-items-center text-xs font-semibold shrink-0">
                   {{ initials(s.name) }}
                 </div>
-                <div>
-                  <div class="text-sm font-medium">{{ s.name }}</div>
-                  <div class="text-[11px] text-gray-500" *ngIf="s.born">b. {{ s.born }}</div>
+                <div class="min-w-0">
+                  <div class="text-sm font-medium leading-tight break-words line-clamp-2">{{ s.name }}</div>
+                  <div class="text-[11px] text-gray-500 mt-0.5" [class.invisible]="!s.born">b. {{ s.born || '' }}</div>
                 </div>
               </div>
             </ng-container>
 
             <!-- expand toggle at end if has children -->
             <button *ngIf="node.children?.length"
-              class="ml-1 p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-800"
+              class="ml-1 p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
               (click)="toggle(node)"
               [attr.aria-expanded]="!isCollapsed(node)"
               aria-label="Toggle children">
@@ -111,21 +109,6 @@ export class TreeNodeRefDirective {
         </div>
       </ng-template>
 
-      <!-- Legend kecil -->
-      <div class="mt-3 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
-        <div class="text-xs font-medium mb-2">Keterangan</div>
-        <div class="grid grid-cols-2 gap-3 text-xs">
-          <div class="flex items-center gap-2">
-            <svg width="48" height="8"><path [attr.stroke]="spouseColor" stroke-width="3" d="M1 4 L47 4"/></svg>
-            <span>Pasangan (menikah)</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <svg width="48" height="8"><path [attr.stroke]="spouseDivorcedColor" stroke-width="3" stroke-dasharray="4 4" d="M1 4 L47 4"/></svg>
-            <span>Pasangan (cerai)</span>
-          </div>
-        </div>
-        
-      </div>
 
       <!-- Details panel -->
       <div *ngIf="selected" class="mt-4 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
@@ -227,21 +210,19 @@ export class TreeComponent {
   // SVG connectors
   @ViewChild('scrollBox', { static: true }) private scrollBox?: ElementRef<HTMLElement>;
   @ViewChild('content', { static: true }) private content?: ElementRef<HTMLElement>;
+  @ViewChild('gesture', { static: true }) private gesture?: ElementRef<HTMLElement>;
   @ViewChildren(TreeNodeRefDirective) private nodeRefs?: QueryList<TreeNodeRefDirective>;
 
   connectors: { d: string; color: string; w?: number; dash?: string }[] = [];
   canvasW = 0;
   canvasH = 0;
-  // single edge color for all generations
-  edgeColor = '#94a3b8';
   spouseColor = '#fb7185';
   spouseDivorcedColor = '#9ca3af';
-  // last positions cache for centering
-  private lastById: Map<string, DOMRect> = new Map();
+  // internal state only for drawing
 
   constructor() {
-    // recalc after initial render
-    afterNextRender(() => this.recalc());
+    // recalc after initial render on next macrotask to avoid NG0100
+    setTimeout(() => this.recalc());
     // restore collapsed state
     try {
       const raw = localStorage.getItem('tree:collapsed');
@@ -282,7 +263,7 @@ export class TreeComponent {
       );
       byId.set(ref.id, local);
     }
-    this.lastById = byId;
+    // byId remains local; no external centering state needed
 
     const paths: { d: string; color: string; w?: number; dash?: string }[] = [];
 
@@ -375,6 +356,78 @@ export class TreeComponent {
       this.scheduleRecalc();
     }
   }
+  // Touch pinch-zoom and pan
+  private activePointers = new Map<number, { x: number; y: number }>();
+  private pinchLastDistance = 0;
+  private isTouchPanning = false;
+  private touchPanStart = { x: 0, y: 0, sl: 0, st: 0 };
+
+  @HostListener('pointerdown', ['$event'])
+  onPointerDown(ev: PointerEvent) {
+    if (ev.pointerType !== 'touch' || !this.gesture || !this.scrollBox) return;
+    const target = ev.target as HTMLElement;
+    if (!this.gesture.nativeElement.contains(target)) return;
+    ev.preventDefault();
+    this.gesture.nativeElement.setPointerCapture(ev.pointerId);
+    this.activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (this.activePointers.size === 1) {
+      const sb = this.scrollBox.nativeElement;
+      this.isTouchPanning = true;
+      this.touchPanStart = { x: ev.clientX, y: ev.clientY, sl: sb.scrollLeft, st: sb.scrollTop };
+    } else if (this.activePointers.size === 2) {
+      const [a, b] = Array.from(this.activePointers.values());
+      this.pinchLastDistance = Math.hypot(b.x - a.x, b.y - a.y);
+      this.isTouchPanning = false;
+    }
+  }
+
+  @HostListener('pointermove', ['$event'])
+  onPointerMove(ev: PointerEvent) {
+    if (ev.pointerType !== 'touch' || !this.scrollBox || !this.gesture) return;
+    const target = ev.target as HTMLElement;
+    if (!this.gesture.nativeElement.contains(target)) return;
+    const rec = this.activePointers.get(ev.pointerId);
+    if (!rec) return;
+    this.activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+
+    if (this.activePointers.size === 2) {
+      ev.preventDefault();
+      const [a, b] = Array.from(this.activePointers.values());
+      const currDist = Math.hypot(b.x - a.x, b.y - a.y);
+      if (this.pinchLastDistance === 0) this.pinchLastDistance = currDist;
+      const factor = currDist / this.pinchLastDistance || 1;
+      const midX = (a.x + b.x) / 2;
+      const midY = (a.y + b.y) / 2;
+      const sb = this.scrollBox.nativeElement;
+      const prevZoom = this.zoom;
+      const nextZoom = Math.max(0.5, Math.min(2, prevZoom * factor));
+      if (nextZoom !== prevZoom) {
+        const focusX = (sb.scrollLeft + midX) / prevZoom;
+        const focusY = (sb.scrollTop + midY) / prevZoom;
+        this.zoom = nextZoom;
+        sb.scrollLeft = focusX * this.zoom - midX;
+        sb.scrollTop = focusY * this.zoom - midY;
+        this.scheduleRecalc();
+      }
+      this.pinchLastDistance = currDist;
+    } else if (this.isTouchPanning && this.activePointers.size === 1) {
+      ev.preventDefault();
+      const sb = this.scrollBox.nativeElement;
+      const dx = ev.clientX - this.touchPanStart.x;
+      const dy = ev.clientY - this.touchPanStart.y;
+      sb.scrollLeft = this.touchPanStart.sl - dx;
+      sb.scrollTop = this.touchPanStart.st - dy;
+    }
+  }
+
+  @HostListener('pointerup', ['$event'])
+  @HostListener('pointercancel', ['$event'])
+  onPointerUp(ev: PointerEvent) {
+    if (ev.pointerType !== 'touch') return;
+    this.activePointers.delete(ev.pointerId);
+    if (this.activePointers.size < 2) this.pinchLastDistance = 0;
+    if (this.activePointers.size === 0) this.isTouchPanning = false;
+  }
   private isPanning = false;
   private panStart = { x: 0, y: 0, sl: 0, st: 0 };
   @HostListener('mousedown', ['$event'])
@@ -416,14 +469,5 @@ export class TreeComponent {
     visit(this.root);
     this.scheduleRecalc();
   }
-  centerOnRoot() {
-    if (!this.scrollBox || this.lastById.size === 0) return;
-    const r = this.lastById.get(this.root.id);
-    if (!r) return;
-    const sb = this.scrollBox.nativeElement;
-    const targetX = r.left + r.width / 2;
-    const targetY = r.top + r.height / 2;
-    sb.scrollLeft = Math.max(0, targetX * this.zoom - sb.clientWidth / 2);
-    sb.scrollTop = Math.max(0, targetY * this.zoom - sb.clientHeight / 2);
-  }
+  // centerOnRoot removed: only vertical layout without centering control
 }
